@@ -14,8 +14,11 @@ slack = SlackClient(os.environ["SLACK_API_TOKEN"])
 
 
 def alert(message):
-    subprocess.Popen(['notify-send', '-t', '15000', 'Warning!', "\n" + message])
-    subprocess.Popen(["espeak", "-v+f4", message])
+    try:
+        subprocess.Popen(['notify-send', '-t', '15000', 'Warning!', "\n" + message])
+        subprocess.Popen(["espeak", "-v+f4", message])
+    except:
+        pass # notify-send and espaky might not be installed (e.g on server)
     slack.api_call("chat.postMessage",
                    channel=os.environ["SLACK_CHANNEL"],
                    text=message)
