@@ -62,7 +62,6 @@ async def check(exchange, timeframe):
 exchanges = [
     (ccxt.gdax(), ['5m', '15m', '1h', '6h', '1d']),
     (ccxt.bittrex(), ['5m', '30m', '1h', '1d']),
-    (ccxt.hitbtc2(), ['5m', '15m', '1h', '4h', '1d']),
     (ccxt.poloniex(), ['5m', '15m', '2h', '4h', '1d']),
     (ccxt.binance(), ['5m', '15m', '1h', '4h', '1d'])
 ]
