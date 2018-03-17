@@ -27,17 +27,19 @@ def alert(message):
 async def check_rsi(symbol, timeframe, exchange):
     candles = exchange.fetch_ohlcv(symbol, timeframe)
     close = numpy.array(candles)[:, 4]
+    volume = (numpy.array(candles)[:, 5])[-10:].sum()
     rsi = round(rsiFunc(close)[-1], 2)
-    oversold = rsi < 30
+    oversold = rsi < (25 if timeframe == '5m' else 28)
     await asyncio.sleep(exchange.rateLimit / 1000)
     return {
         'oversold': oversold, 'symbol': symbol,
-        'timeframe': timeframe, 'rsi': rsi
+        'timeframe': timeframe, 'rsi': rsi,
+        'volume': volume
     }
 
 def print_values(i):
     print('\033[31m' if i["oversold"] else '',
-          i["symbol"], i["timeframe"],
+          i["symbol"], i["timeframe"], i["volume"],
           i["rsi"], '\033[0m')
 
 async def check_oversold(symbol, exchange, timeframe):
