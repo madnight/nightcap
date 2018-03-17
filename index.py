@@ -62,10 +62,10 @@ async def check(exchange, timeframe):
             print(e)
 
 exchanges = [
-    (ccxt.gdax(), ['5m', '15m', '1h', '6h', '1d']),
+    (ccxt.gdax(), ['5m', '15m', '1h', '6h']),
     (ccxt.bittrex(), ['5m', '30m', '1h', '1d']),
-    (ccxt.poloniex(), ['5m', '15m', '2h', '4h', '1d']),
-    (ccxt.binance(), ['5m', '15m', '1h', '4h', '1d'])
+    (ccxt.poloniex(), ['5m', '15m', '2h', '4h']),
+    (ccxt.binance(), ['5m', '15m', '1h', '4h'])
 ]
 tasks = [check(e,t) for e,t in exchanges]
 
