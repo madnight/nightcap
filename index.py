@@ -10,6 +10,8 @@ from rsi import rsiFunc
 
 slack = SlackClient(os.environ["SLACK_API_TOKEN"])
 
+counter_currencies = ["BTC", "USD", "USDT"]
+
 def alert(message):
     try:
         subprocess.Popen(
@@ -39,11 +41,13 @@ def print_values(i):
           i["rsi"], '\033[0m')
 
 async def check_oversold(symbol, exchange, timeframe):
+    if symbol.split("/")[1] not in counter_currencies:
+        return
     oversolds = [await check_rsi(symbol, t, exchange) for t in timeframe]
     print(exchange.name)
     list(map(print_values, oversolds))
     if sum(o.get('oversold') == True for o in oversolds) > 3:
-        alert(symbol + " oversold alert")
+        alert(exchange.name + ": " + symbol + " oversold alert")
     print("")
 
 
