@@ -31,7 +31,7 @@ async def check_rsi(symbol, timeframe, exchange):
     close = numpy.array(candles)[:, 4]
     volume = (numpy.array(candles)[:, 5])[-10:].sum() * close[-1]
     rsi = round(rsiFunc(close)[-1], 2)
-    oversold = rsi < (25 if timeframe == '5m' else 28)
+    oversold = rsi < (20 if timeframe == '5m' else 25)
     await asyncio.sleep(exchange.rateLimit / 1000)
     return {
         'oversold': oversold, 'symbol': symbol,
