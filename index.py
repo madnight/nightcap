@@ -4,6 +4,7 @@ import ccxt
 import subprocess
 import os
 import asyncio
+import cachetools.func
 
 from slackclient import SlackClient
 from rsi import rsiFunc
@@ -12,6 +13,7 @@ slack = SlackClient(os.environ["SLACK_API_TOKEN"])
 
 counter_currencies = ["BTC", "USD", "USDT"]
 
+@cachetools.func.ttl_cache(maxsize=1000, ttl=3600)
 def alert(message):
     try:
         subprocess.Popen(
@@ -27,7 +29,7 @@ def alert(message):
 async def check_rsi(symbol, timeframe, exchange):
     candles = exchange.fetch_ohlcv(symbol, timeframe)
     close = numpy.array(candles)[:, 4]
-    volume = (numpy.array(candles)[:, 5])[-10:].sum()
+    volume = (numpy.array(candles)[:, 5])[-10:].sum() * close[-1]
     rsi = round(rsiFunc(close)[-1], 2)
     oversold = rsi < (25 if timeframe == '5m' else 28)
     await asyncio.sleep(exchange.rateLimit / 1000)
@@ -45,13 +47,20 @@ def print_values(i):
 async def check_oversold(symbol, exchange, timeframe):
     if symbol.split("/")[1] not in counter_currencies:
         return
+    oversolds = []
+    for t in timeframe:
+        result = await check_rsi(symbol, t, exchange)
+        if t == '5m' and not result.get('oversold'):
+            print_values(result)
+            return
+        oversolds.append(result)
+
     oversolds = [await check_rsi(symbol, t, exchange) for t in timeframe]
     print(exchange.name)
     list(map(print_values, oversolds))
     if sum(o.get('oversold') == True for o in oversolds) > 3:
         alert(exchange.name + ": " + symbol + " oversold alert")
     print("")
-
 
 async def check(exchange, timeframe):
     while True:
@@ -63,10 +72,13 @@ async def check(exchange, timeframe):
 
 exchanges = [
     (ccxt.gdax(), ['5m', '15m', '1h', '6h']),
-    (ccxt.bittrex(), ['5m', '30m', '1h', '1d']),
-    (ccxt.poloniex(), ['5m', '15m', '2h', '4h']),
     (ccxt.binance(), ['5m', '15m', '1h', '4h'])
 ]
+
+# too low volume
+#  (ccxt.bittrex(), ['5m', '30m', '1h', '1d']),
+#  (ccxt.poloniex(), ['5m', '15m', '2h', '4h']),
+
 tasks = [check(e,t) for e,t in exchanges]
 
 alert("RSI Alert Bot started")
