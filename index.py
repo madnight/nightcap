@@ -9,8 +9,8 @@ import cachetools.func
 from slackclient import SlackClient
 from rsi import rsiFunc
 
-slack = SlackClient(os.environ["SLACK_API_TOKEN"])
-
+token = os.environ.get("SLACK_API_TOKEN", "")
+slack = SlackClient(token)
 counter_currencies = ["BTC", "USD", "USDT"]
 
 @cachetools.func.ttl_cache(maxsize=1000, ttl=3600)
@@ -21,9 +21,11 @@ def alert(message):
         subprocess.Popen(["espeak", "-v+f4", message])
     except:
         pass # notify-send and espaky might not be installed (e.g on server)
-    slack.api_call("chat.postMessage",
-                   channel=os.environ["SLACK_CHANNEL"],
-                   text=message)
+
+    if token:
+        slack.api_call("chat.postMessage",
+                       channel=os.environ["SLACK_CHANNEL"],
+                       text=message)
     print(message)
 
 async def check_rsi(symbol, timeframe, exchange):
@@ -31,12 +33,13 @@ async def check_rsi(symbol, timeframe, exchange):
     close = numpy.array(candles)[:, 4]
     volume = (numpy.array(candles)[:, 5])[-10:].sum() * close[-1]
     rsi = round(rsiFunc(close)[-1], 2)
-    oversold = rsi < (20 if timeframe == '5m' else 25)
     await asyncio.sleep(exchange.rateLimit / 1000)
+
     return {
-        'oversold': oversold, 'symbol': symbol,
-        'timeframe': timeframe, 'rsi': rsi,
-        'volume': volume
+        'oversold': rsi < (20 if timeframe == '5m' else 25),
+        'overbought': rsi > (80 if timeframe == '5m' else 75),
+        'symbol': symbol, 'timeframe': timeframe,
+        'rsi': rsi, 'volume': volume
     }
 
 def print_values(i):
@@ -47,20 +50,18 @@ def print_values(i):
 async def check_oversold(symbol, exchange, timeframe):
     if symbol.split("/")[1] not in counter_currencies:
         return
-    oversolds = []
-    for t in timeframe:
-        result = await check_rsi(symbol, t, exchange)
-        if t == '5m' and not result.get('oversold'):
-            print_values(result)
-            return
-        oversolds.append(result)
 
-    oversolds = [await check_rsi(symbol, t, exchange) for t in timeframe]
+    rsi_values = [await check_rsi(symbol, t, exchange) for t in timeframe]
     print(exchange.name)
-    list(map(print_values, oversolds))
-    if sum(o.get('oversold') == True for o in oversolds) > 3:
-        alert(exchange.name + ": " + symbol + " oversold alert")
-    print("")
+
+    list(map(print_values, rsi_values))
+
+    def rsi_alert(key):
+        if sum(o.get(key) == True for o in rsi_values) > 3:
+            alert(exchange.name + ": " + symbol + " " + key + " alert")
+
+    list(map(rsi_alert, ["oversold", "overbought"]))
+    print("") # delimiter
 
 async def check(exchange, timeframe):
     while True:
@@ -75,7 +76,7 @@ exchanges = [
     (ccxt.binance(), ['5m', '15m', '1h', '4h'])
 ]
 
-# too low volume
+# low volume
 #  (ccxt.bittrex(), ['5m', '30m', '1h', '1d']),
 #  (ccxt.poloniex(), ['5m', '15m', '2h', '4h']),
 
